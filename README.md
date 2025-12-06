@@ -1,46 +1,165 @@
-# Getting Started with Create React App
+# PDF 编辑器
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+一个基于 React 的纯前端 PDF 文本编辑器，支持覆盖式文本编辑、添加新文本、插入图片等功能。
 
-## Available Scripts
+## 功能特性
 
-In the project directory, you can run:
+- ✏️ **覆盖式文本编辑** - 点击 PDF 中的文本进行编辑（用新文本覆盖原文本）
+- ➕ **添加新文本** - 在 PDF 任意位置添加新的文本内容
+- 🎨 **格式调整** - 修改字体大小、颜色、粗体、斜体
+- 🖼️ **插入图片** - 支持添加图片到 PDF
+- 💾 **导出 PDF** - 将编辑后的内容导出为新的 PDF 文件
+- 🔍 **缩放功能** - 放大/缩小查看 PDF 内容
+- 📄 **多页支持** - 支持编辑多页 PDF 文档
 
-### `npm start`
+## 技术栈
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- **React 18** + TypeScript
+- **PDF.js** - PDF 渲染和文本提取
+- **pdf-lib** - PDF 生成和修改
+- **Fabric.js** - 画布编辑和交互
+- **Tailwind CSS** - 现代化 UI 样式
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## 安装和运行
 
-### `npm test`
+### 安装依赖
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+\`\`\`bash
+npm install
+\`\`\`
 
-### `npm run build`
+### 启动开发服务器
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+\`\`\`bash
+npm start
+\`\`\`
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+应用将在 [http://localhost:3000](http://localhost:3000) 打开。
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### 构建生产版本
 
-### `npm run eject`
+\`\`\`bash
+npm run build
+\`\`\`
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+## 使用说明
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 1. 打开 PDF 文件
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+点击工具栏的"📄 打开 PDF"按钮，选择要编辑的 PDF 文件。
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+### 2. 编辑文本
 
-## Learn More
+#### 覆盖式编辑（修改现有文本）
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+1. 点击工具栏的"✏️ 编辑文本"工具
+2. 点击 PDF 中要修改的文本
+3. 系统会自动创建白色遮罩覆盖原文本
+4. 在文本框中输入新内容
+5. 点击其他区域完成编辑
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+#### 添加新文本
+
+1. 点击工具栏的"T 添加文本"工具
+2. 在 PDF 上点击要添加文本的位置
+3. 输入文本内容
+4. 使用格式工具调整样式
+
+### 3. 格式调整
+
+- **字体大小**：从下拉菜单选择 12px - 48px
+- **颜色**：点击颜色选择器选择文字颜色
+- **粗体**：点击 **B** 按钮
+- **斜体**：点击 *I* 按钮
+
+### 4. 插入图片
+
+1. 点击工具栏的"🖼️"按钮
+2. 选择图片文件
+3. 拖动和缩放图片到合适位置
+
+### 5. 页面导航
+
+- 使用底部的页面导航栏切换页面
+- 点击"上一页"/"下一页"按钮
+- 或直接输入页码跳转
+
+### 6. 缩放控制
+
+- **放大**：点击"+"按钮
+- **缩小**：点击"−"按钮
+- **重置**：点击百分比显示按钮
+
+### 7. 导出 PDF
+
+编辑完成后，点击"💾 导出 PDF"按钮，系统会自动下载编辑后的 PDF 文件。
+
+## 技术原理
+
+### 覆盖式编辑实现
+
+由于浏览器环境的限制，纯前端无法直接修改 PDF 的原始文本内容。本项目采用"覆盖式"编辑方案：
+
+1. 使用 PDF.js 渲染 PDF 并提取文本位置信息
+2. 当用户点击文本时，在原文本位置创建白色矩形遮罩
+3. 在遮罩上方添加可编辑的文本框
+4. 导出时使用 pdf-lib 将遮罩和新文本叠加到原 PDF 上
+
+这种方案在视觉效果上与直接编辑文本一致，同时保持了纯前端实现的优势。
+
+### 坐标系转换
+
+- **Canvas 坐标系**：原点在左上角，Y 轴向下
+- **PDF 坐标系**：原点在左下角，Y 轴向上
+- 导出时需要进行坐标转换以确保元素位置正确
+
+## 项目结构
+
+\`\`\`
+src/
+├── components/
+│   ├── EditorCanvas.tsx      # Fabric.js 编辑画布
+│   ├── Toolbar.tsx            # 顶部工具栏
+│   ├── PageNavigation.tsx     # 页面导航
+│   └── PDFViewer.tsx          # PDF 查看器主组件
+├── hooks/
+│   ├── usePDFDocument.ts      # PDF 文档管理
+│   └── useEditor.ts           # 编辑器状态管理
+├── utils/
+│   ├── pdfRenderer.ts         # PDF 渲染工具
+│   └── pdfGenerator.ts        # PDF 生成工具
+├── types/
+│   └── editor.types.ts        # TypeScript 类型定义
+└── App.tsx                    # 主应用组件
+\`\`\`
+
+## 浏览器兼容性
+
+- Chrome 90+
+- Firefox 88+
+- Safari 14+
+- Edge 90+
+
+## 限制和注意事项
+
+1. **文本编辑限制**：采用覆盖式编辑，不会修改 PDF 的原始文本内容
+2. **字体支持**：默认使用 Helvetica 字体，中文可能显示为默认字体
+3. **文件大小**：建议处理小于 20MB 的 PDF 文件
+4. **浏览器要求**：需要支持 Canvas API 和 WebAssembly
+
+## 未来改进
+
+- [ ] 支持更多中文字体
+- [ ] 添加表单填写功能
+- [ ] 支持页面删除和重排序
+- [ ] 添加撤销/重做历史记录
+- [ ] 支持合并多个 PDF 文件
+- [ ] 云端存储集成
+
+## 许可证
+
+MIT License
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request！
