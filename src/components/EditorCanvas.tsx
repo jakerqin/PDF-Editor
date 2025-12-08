@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as fabric from 'fabric';
+import { PencilBrush } from 'fabric';
 import {
   EditorTool,
   TextStyle,
@@ -450,19 +451,39 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
    */
   const enableDrawingMode = useCallback(() => {
     const fabricCanvas = fabricCanvasRef.current;
-    if (!fabricCanvas) return;
-
-    fabricCanvas.isDrawingMode = true;
-    
-    // 设置画笔属性
-    if (fabricCanvas.freeDrawingBrush) {
-      fabricCanvas.freeDrawingBrush.color = brushSettings.color;
-      fabricCanvas.freeDrawingBrush.width = brushSettings.strokeWidth;
+    if (!fabricCanvas) {
+      console.warn('启用绘画模式失败: fabricCanvas 不存在');
+      return;
     }
+
+    console.log('🖌️ 启用绘画模式', {
+      color: brushSettings.color,
+      strokeWidth: brushSettings.strokeWidth,
+    });
+
+    // Fabric.js v6 需要手动创建 PencilBrush 实例
+    const brush = new PencilBrush(fabricCanvas);
+    brush.color = brushSettings.color;
+    brush.width = brushSettings.strokeWidth;
+    fabricCanvas.freeDrawingBrush = brush;
+
+    // 启用绘画模式
+    fabricCanvas.isDrawingMode = true;
+
+    console.log('✅ 画笔已配置:', {
+      color: fabricCanvas.freeDrawingBrush.color,
+      width: fabricCanvas.freeDrawingBrush.width,
+    });
 
     // 设置鼠标样式为十字光标
     fabricCanvas.defaultCursor = 'crosshair';
     fabricCanvas.hoverCursor = 'crosshair';
+
+    console.log('📊 Fabric Canvas 状态:', {
+      isDrawingMode: fabricCanvas.isDrawingMode,
+      defaultCursor: fabricCanvas.defaultCursor,
+      hoverCursor: fabricCanvas.hoverCursor,
+    });
   }, [brushSettings.color, brushSettings.strokeWidth]);
 
   /**
@@ -471,6 +492,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   const disableDrawingMode = useCallback(() => {
     const fabricCanvas = fabricCanvasRef.current;
     if (!fabricCanvas) return;
+
+    console.log('🚫 禁用绘画模式');
 
     fabricCanvas.isDrawingMode = false;
     
@@ -486,9 +509,15 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     const fabricCanvas = fabricCanvasRef.current;
     if (!fabricCanvas || !isReady) return;
 
+    console.log('👂 开始监听绘画事件');
+
     const handlePathCreated = (e: any) => {
+      console.log('🎨 path:created 事件触发!', e);
       const path = e.path;
-      if (!path) return;
+      if (!path) {
+        console.warn('⚠️ path 对象为空');
+        return;
+      }
 
       const operationId = `path-${Date.now()}`;
       
@@ -508,13 +537,30 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
       onAddOperation(operation);
       
-      console.log('绘制路径已保存:', operation);
+      console.log('✅ 绘制路径已保存:', operation);
+    };
+
+    const handleMouseDown = (e: any) => {
+      console.log('🖱️ mouse:down 事件', { isDrawingMode: fabricCanvas.isDrawingMode });
+    };
+
+    const handleMouseMove = (e: any) => {
+      // 只在第一次打印，避免刷屏
+      if (!(window as any)._mouseMoveLogged) {
+        console.log('🖱️ mouse:move 事件正在触发');
+        (window as any)._mouseMoveLogged = true;
+      }
     };
 
     fabricCanvas.on('path:created', handlePathCreated);
+    fabricCanvas.on('mouse:down', handleMouseDown);
+    fabricCanvas.on('mouse:move', handleMouseMove);
 
     return () => {
       fabricCanvas.off('path:created', handlePathCreated);
+      fabricCanvas.off('mouse:down', handleMouseDown);
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      console.log('🔇 停止监听绘画事件');
     };
   }, [isReady, pageNumber, brushSettings.color, brushSettings.strokeWidth, onAddOperation]);
 
@@ -523,6 +569,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
    */
   useEffect(() => {
     if (!isReady) return;
+
+    console.log('🔧 当前工具:', currentTool);
 
     if (currentTool === EditorTool.BRUSH) {
       enableDrawingMode();
@@ -554,8 +602,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       return hex.length === 1 ? '0' + hex : hex;
     }).join('');
 
+    console.log('🎨 取色成功:', hex);
     onColorPicked(hex);
-    console.log('取色成功:', hex);
   }, [onColorPicked]);
 
   /**

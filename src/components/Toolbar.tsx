@@ -286,9 +286,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         isOpen={isColorPickerOpen}
         currentColor={pickedColor || brushSettings.color}
         onClose={() => {
+          console.log('❌ 取消颜色选择');
           setIsColorPickerOpen(false);
         }}
         onConfirm={(color) => {
+          console.log('✅ 确认颜色:', color);
+          console.log('🔄 切换到画笔工具');
           onBrushSettingsChange({ color });
           onToolChange(EditorTool.BRUSH);
           setIsColorPickerOpen(false);

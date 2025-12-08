@@ -40,11 +40,13 @@ function App() {
       toast.warning('请先打开 PDF 文件');
       return;
     }
+    console.log('🎯 开始取色模式');
     setIsPickingColor(true);
     setPickedColor(null);
   };
 
   const handleColorPicked = (color: string) => {
+    console.log('🎨 取色完成, 颜色:', color);
     setPickedColor(color);
     setIsPickingColor(false);
   };
