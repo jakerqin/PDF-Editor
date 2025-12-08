@@ -4,6 +4,7 @@ import {
   EditorTool,
   EditOperation,
   TextStyle,
+  BrushSettings,
 } from '../types/editor.types';
 import { generateEditedPDF, downloadPDF } from '../utils/pdfGenerator';
 import { DEFAULT_FONT_ID } from '../utils/fontManager';
@@ -17,12 +18,18 @@ const defaultTextStyle: TextStyle = {
   align: 'left',
 };
 
+const defaultBrushSettings: BrushSettings = {
+  color: '#FFFFFF', // 默认白色
+  strokeWidth: 20, // 默认粗细
+};
+
 export function useEditor() {
   const [editorState, setEditorState] = useState<EditorState>({
     operations: [],
     selectedObjectId: null,
     tool: EditorTool.SELECT,
     textStyle: defaultTextStyle,
+    brushSettings: defaultBrushSettings,
   });
 
   /**
@@ -94,6 +101,16 @@ export function useEditor() {
   }, []);
 
   /**
+   * 更新画笔设置
+   */
+  const updateBrushSettings = useCallback((settings: Partial<BrushSettings>) => {
+    setEditorState((prev) => ({
+      ...prev,
+      brushSettings: { ...prev.brushSettings, ...settings },
+    }));
+  }, []);
+
+  /**
    * 获取当前页的操作
    */
   const getPageOperations = useCallback(
@@ -159,6 +176,7 @@ export function useEditor() {
     removeOperation,
     setSelectedObject,
     updateTextStyle,
+    updateBrushSettings,
     getPageOperations,
     undo,
     clearAll,

@@ -28,6 +28,7 @@ export enum EditOperationType {
   ADD_TEXT = 'ADD_TEXT', // 添加新文本
   ADD_IMAGE = 'ADD_IMAGE', // 添加图片
   ADD_MASK = 'ADD_MASK', // 添加遮罩（白色矩形）
+  DRAW_PATH = 'DRAW_PATH', // 绘制路径（背景笔）
 }
 
 // 文本样式
@@ -79,8 +80,22 @@ export interface ImageOperation extends BaseEditOperation {
   rotation: number;
 }
 
+// 绘制路径操作（背景笔）
+export interface DrawPathOperation extends BaseEditOperation {
+  type: EditOperationType.DRAW_PATH;
+  path: any[]; // Fabric.js path 数组
+  color: string; // 画笔颜色
+  strokeWidth: number; // 画笔粗细
+}
+
 // 联合类型：所有编辑操作
-export type EditOperation = MaskOperation | TextEditOperation | ImageOperation;
+export type EditOperation = MaskOperation | TextEditOperation | ImageOperation | DrawPathOperation;
+
+// 画笔设置
+export interface BrushSettings {
+  color: string; // 画笔颜色
+  strokeWidth: number; // 画笔粗细
+}
 
 // 编辑器状态
 export interface EditorState {
@@ -88,6 +103,7 @@ export interface EditorState {
   selectedObjectId: string | null;
   tool: EditorTool;
   textStyle: TextStyle;
+  brushSettings: BrushSettings;
 }
 
 // 编辑工具
@@ -96,6 +112,7 @@ export enum EditorTool {
   TEXT = 'TEXT', // 文本工具
   IMAGE = 'IMAGE', // 图片工具
   EDIT_TEXT = 'EDIT_TEXT', // 编辑文本工具
+  BRUSH = 'BRUSH', // 背景笔工具
 }
 
 // Fabric.js 对象扩展（添加自定义属性）

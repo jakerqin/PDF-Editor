@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { PDFViewer } from './components/PDFViewer';
 import { ToastContainer, toast } from './components/Toast';
@@ -9,6 +9,10 @@ function App() {
   // 统一在 App 层管理所有状态
   const pdfDocument = usePDFDocument();
   const editor = useEditor();
+  
+  // 取色状态
+  const [isPickingColor, setIsPickingColor] = useState(false);
+  const [pickedColor, setPickedColor] = useState<string | null>(null);
 
   const handleExport = async () => {
     if (!pdfDocument.documentState.file || !pdfDocument.currentPageRenderInfo) {
@@ -31,6 +35,20 @@ function App() {
     }
   };
 
+  const handleStartColorPicking = () => {
+    if (!pdfDocument.documentState.file) {
+      toast.warning('请先打开 PDF 文件');
+      return;
+    }
+    setIsPickingColor(true);
+    setPickedColor(null);
+  };
+
+  const handleColorPicked = (color: string) => {
+    setPickedColor(color);
+    setIsPickingColor(false);
+  };
+
   return (
     <div className="app-container">
       {/* Toast 通知容器 */}
@@ -40,9 +58,14 @@ function App() {
       <Toolbar
         currentTool={editor.editorState.tool}
         textStyle={editor.editorState.textStyle}
+        brushSettings={editor.editorState.brushSettings}
         canUndo={editor.editorState.operations.length > 0}
+        isPickingColor={isPickingColor}
+        pickedColor={pickedColor}
         onToolChange={editor.setTool}
         onTextStyleChange={editor.updateTextStyle}
+        onBrushSettingsChange={editor.updateBrushSettings}
+        onStartColorPicking={handleStartColorPicking}
         onUploadPDF={pdfDocument.loadPDF}
         onExportPDF={handleExport}
         onUndo={editor.undo}
@@ -67,6 +90,8 @@ function App() {
         removeOperation={editor.removeOperation}
         setSelectedObject={editor.setSelectedObject}
         setTool={editor.setTool}
+        isPickingColor={isPickingColor}
+        onColorPicked={handleColorPicked}
       />
     </div>
   );

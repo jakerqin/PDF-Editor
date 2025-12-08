@@ -20,6 +20,9 @@ interface PDFViewerProps {
   removeOperation: (operationId: string) => void;
   setSelectedObject: (objectId: string | null) => void;
   setTool: (tool: EditorTool) => void;
+  // 取色状态
+  isPickingColor: boolean;
+  onColorPicked: (color: string) => void;
 }
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({
@@ -36,6 +39,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   removeOperation,
   setSelectedObject,
   setTool,
+  isPickingColor,
+  onColorPicked,
 }) => {
   return (
     <div className="main-content">
@@ -89,11 +94,14 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             textItems={currentPageRenderInfo.textItems}
             currentTool={editorState.tool}
             textStyle={editorState.textStyle}
+            brushSettings={editorState.brushSettings}
             pageNumber={documentState.currentPage}
             onAddOperation={addOperation}
             onRemoveOperation={removeOperation}
             onObjectSelected={setSelectedObject}
             onToolChange={setTool}
+            isPickingColor={isPickingColor}
+            onColorPicked={onColorPicked}
           />
         </div>
       )}

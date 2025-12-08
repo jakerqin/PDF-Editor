@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   FileUp,
   Download,
@@ -9,16 +9,23 @@ import {
   Undo2,
   Minus,
   Plus,
+  Paintbrush,
 } from 'lucide-react';
-import { EditorTool, TextStyle } from '../types/editor.types';
+import { EditorTool, TextStyle, BrushSettings } from '../types/editor.types';
 import { FONTS } from '../utils/fontManager';
+import { ColorPickerModal } from './ColorPickerModal';
 
 interface ToolbarProps {
   currentTool: EditorTool;
   textStyle: TextStyle;
+  brushSettings: BrushSettings;
   canUndo: boolean;
+  isPickingColor: boolean;
+  pickedColor: string | null;
   onToolChange: (tool: EditorTool) => void;
   onTextStyleChange: (style: Partial<TextStyle>) => void;
+  onBrushSettingsChange: (settings: Partial<BrushSettings>) => void;
+  onStartColorPicking: () => void;
   onUploadPDF: (file: File) => void;
   onExportPDF: () => void;
   onUndo: () => void;
@@ -31,9 +38,14 @@ interface ToolbarProps {
 export const Toolbar: React.FC<ToolbarProps> = ({
   currentTool,
   textStyle,
+  brushSettings,
   canUndo,
+  isPickingColor,
+  pickedColor,
   onToolChange,
   onTextStyleChange,
+  onBrushSettingsChange,
+  onStartColorPicking,
   onUploadPDF,
   onExportPDF,
   onUndo,
@@ -44,6 +56,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+
+  // 当收到取色结果时打开 modal
+  React.useEffect(() => {
+    if (pickedColor) {
+      setIsColorPickerOpen(true);
+    }
+  }, [pickedColor]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -117,6 +137,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Pencil size={18} />
         </button>
 
+        <button
+          onClick={() => {
+            onStartColorPicking();
+          }}
+          className={`btn btn-ghost btn-icon ${isPickingColor || currentTool === EditorTool.BRUSH ? 'active' : ''}`}
+          title={isPickingColor ? '点击页面取色' : '背景笔'}
+        >
+          <Paintbrush size={18} />
+        </button>
+
         <div className="toolbar-divider" />
 
         <input
@@ -146,6 +176,25 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
       {/* 右侧：格式工具和缩放 */}
       <div className="toolbar-section">
+        {/* 背景笔设置（仅在选中背景笔工具时显示） */}
+        {currentTool === EditorTool.BRUSH && (
+          <>
+            <select
+              value={brushSettings.strokeWidth}
+              onChange={(e) => onBrushSettingsChange({ strokeWidth: parseInt(e.target.value) })}
+              className="select-input"
+              title="画笔粗细"
+            >
+              {[10, 20, 30, 40, 50].map((width) => (
+                <option key={width} value={width}>
+                  {width}px
+                </option>
+              ))}
+            </select>
+            <div className="toolbar-divider" />
+          </>
+        )}
+
         {/* 字体选择 */}
         <select
           value={textStyle.fontId}
@@ -231,6 +280,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Plus size={18} />
         </button>
       </div>
+
+      {/* 颜色选择弹窗 */}
+      <ColorPickerModal
+        isOpen={isColorPickerOpen}
+        currentColor={pickedColor || brushSettings.color}
+        onClose={() => {
+          setIsColorPickerOpen(false);
+        }}
+        onConfirm={(color) => {
+          onBrushSettingsChange({ color });
+          onToolChange(EditorTool.BRUSH);
+          setIsColorPickerOpen(false);
+        }}
+      />
+
+      {/* 取色提示 */}
+      {isPickingColor && (
+        <div className="color-picking-hint">
+          <Paintbrush size={16} />
+          <span>点击 PDF 页面任意位置进行取色</span>
+        </div>
+      )}
     </div>
   );
 };

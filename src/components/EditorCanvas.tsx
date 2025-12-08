@@ -8,9 +8,12 @@ import {
   MaskOperation,
   TextEditOperation,
   ImageOperation,
+  BrushSettings,
+  DrawPathOperation,
 } from '../types/editor.types';
 import { findTextAtPosition } from '../utils/pdfRenderer';
 import { getFontCSSFamily } from '../utils/fontManager';
+import { ColorPickerCursor } from './ColorPickerCursor';
 
 const DEFAULT_TEXT = '点击输入文字';
 
@@ -19,11 +22,14 @@ interface EditorCanvasProps {
   textItems: PDFTextItem[];
   currentTool: EditorTool;
   textStyle: TextStyle;
+  brushSettings: BrushSettings;
   pageNumber: number;
   onAddOperation: (operation: any) => void;
   onRemoveOperation: (operationId: string) => void;
   onObjectSelected: (objectId: string | null) => void;
   onToolChange: (tool: EditorTool) => void;
+  isPickingColor: boolean;
+  onColorPicked: (color: string) => void;
 }
 
 export const EditorCanvas: React.FC<EditorCanvasProps> = ({
@@ -31,15 +37,21 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   textItems,
   currentTool,
   textStyle,
+  brushSettings,
   pageNumber,
   onAddOperation,
   onRemoveOperation,
   onObjectSelected,
   onToolChange,
+  isPickingColor,
+  onColorPicked,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+  const pdfCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [isReady, setIsReady] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   // 初始化 Fabric.js Canvas
   useEffect(() => {
@@ -433,17 +445,196 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     }
   }, [isReady, addImage]);
 
+  /**
+   * 启用绘画模式
+   */
+  const enableDrawingMode = useCallback(() => {
+    const fabricCanvas = fabricCanvasRef.current;
+    if (!fabricCanvas) return;
+
+    fabricCanvas.isDrawingMode = true;
+    
+    // 设置画笔属性
+    if (fabricCanvas.freeDrawingBrush) {
+      fabricCanvas.freeDrawingBrush.color = brushSettings.color;
+      fabricCanvas.freeDrawingBrush.width = brushSettings.strokeWidth;
+    }
+
+    // 设置鼠标样式为十字光标
+    fabricCanvas.defaultCursor = 'crosshair';
+    fabricCanvas.hoverCursor = 'crosshair';
+  }, [brushSettings.color, brushSettings.strokeWidth]);
+
+  /**
+   * 禁用绘画模式
+   */
+  const disableDrawingMode = useCallback(() => {
+    const fabricCanvas = fabricCanvasRef.current;
+    if (!fabricCanvas) return;
+
+    fabricCanvas.isDrawingMode = false;
+    
+    // 恢复默认鼠标样式
+    fabricCanvas.defaultCursor = 'default';
+    fabricCanvas.hoverCursor = 'move';
+  }, []);
+
+  /**
+   * 监听绘画完成事件
+   */
+  useEffect(() => {
+    const fabricCanvas = fabricCanvasRef.current;
+    if (!fabricCanvas || !isReady) return;
+
+    const handlePathCreated = (e: any) => {
+      const path = e.path;
+      if (!path) return;
+
+      const operationId = `path-${Date.now()}`;
+      
+      // 添加操作 ID
+      (path as any).editOperationId = operationId;
+      (path as any).isEditOperation = true;
+
+      // 保存绘画操作
+      const operation: DrawPathOperation = {
+        id: operationId,
+        type: EditOperationType.DRAW_PATH,
+        pageNumber,
+        path: path.path, // Fabric.js path 数组
+        color: brushSettings.color,
+        strokeWidth: brushSettings.strokeWidth,
+      };
+
+      onAddOperation(operation);
+      
+      console.log('绘制路径已保存:', operation);
+    };
+
+    fabricCanvas.on('path:created', handlePathCreated);
+
+    return () => {
+      fabricCanvas.off('path:created', handlePathCreated);
+    };
+  }, [isReady, pageNumber, brushSettings.color, brushSettings.strokeWidth, onAddOperation]);
+
+  /**
+   * 根据当前工具切换绘画模式
+   */
+  useEffect(() => {
+    if (!isReady) return;
+
+    if (currentTool === EditorTool.BRUSH) {
+      enableDrawingMode();
+    } else {
+      disableDrawingMode();
+    }
+  }, [isReady, currentTool, enableDrawingMode, disableDrawingMode]);
+
+  /**
+   * 取色功能
+   */
+  const pickColorFromCanvas = useCallback((x: number, y: number) => {
+    const canvas = pdfCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // 获取点击位置的像素数据
+    const imageData = ctx.getImageData(x, y, 1, 1);
+    const pixel = imageData.data;
+
+    // 转换为 hex 颜色
+    const r = pixel[0];
+    const g = pixel[1];
+    const b = pixel[2];
+    const hex = '#' + [r, g, b].map(x => {
+      const hex = x.toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+
+    onColorPicked(hex);
+    console.log('取色成功:', hex);
+  }, [onColorPicked]);
+
+  /**
+   * 监听取色模式下的鼠标移动和点击事件
+   */
+  useEffect(() => {
+    if (!isPickingColor || !isReady) return;
+
+    const wrapper = wrapperRef.current;
+    const pdfCanvasElement = pdfCanvasRef.current;
+    if (!wrapper || !pdfCanvasElement) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = wrapper.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // 检查鼠标是否在 canvas 范围内
+      const isInsideCanvas = x >= 0 && x <= pdfCanvasElement.width && 
+                            y >= 0 && y <= pdfCanvasElement.height;
+      
+      if (isInsideCanvas) {
+        setMousePosition({ x, y });
+      } else {
+        // 鼠标不在 canvas 范围内，隐藏取色器
+        setMousePosition({ x: -1000, y: -1000 });
+      }
+    };
+
+    const handleMouseLeave = () => {
+      // 鼠标离开容器时隐藏取色器
+      setMousePosition({ x: -1000, y: -1000 });
+    };
+
+    wrapper.addEventListener('mousemove', handleMouseMove);
+    wrapper.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      wrapper.removeEventListener('mousemove', handleMouseMove);
+      wrapper.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [isPickingColor, isReady]);
+
+  /**
+   * 处理取色点击
+   */
+  const handleColorPickerClick = useCallback((color: string) => {
+    onColorPicked(color);
+  }, [onColorPicked]);
+
   // 获取 canvas 尺寸
   const canvasWidth = pdfCanvas?.width || 0;
   const canvasHeight = pdfCanvas?.height || 0;
 
   return (
     <div 
+      ref={wrapperRef}
       className="pdf-canvas-wrapper"
       style={{ 
         position: 'relative',
         width: canvasWidth,
         height: canvasHeight,
+      }}
+      onClick={(e) => {
+        if (isPickingColor && pdfCanvasRef.current) {
+          const rect = wrapperRef.current?.getBoundingClientRect();
+          if (rect) {
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // 只在 canvas 范围内取色
+            const isInsideCanvas = x >= 0 && x <= pdfCanvasRef.current.width && 
+                                  y >= 0 && y <= pdfCanvasRef.current.height;
+            
+            if (isInsideCanvas) {
+              pickColorFromCanvas(Math.round(x), Math.round(y));
+            }
+          }
+        }
       }}
     >
       {/* PDF 背景层 */}
@@ -451,6 +642,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         <canvas
           ref={(ref) => {
             if (ref && pdfCanvas) {
+              pdfCanvasRef.current = ref;
               const ctx = ref.getContext('2d');
               if (ctx) {
                 ref.width = pdfCanvas.width;
@@ -463,6 +655,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             position: 'absolute',
             top: 0,
             left: 0,
+            cursor: isPickingColor ? 'none' : 'default',
           }}
         />
       )}
@@ -474,8 +667,20 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           position: 'absolute',
           top: 0,
           left: 0,
+          pointerEvents: isPickingColor ? 'none' : 'auto',
+          cursor: isPickingColor ? 'none' : 'default',
         }}
       />
+
+      {/* 取色器光标 */}
+      {isPickingColor && pdfCanvasRef.current && mousePosition.x >= 0 && (
+        <ColorPickerCursor
+          sourceCanvas={pdfCanvasRef.current}
+          x={mousePosition.x}
+          y={mousePosition.y}
+          onColorPick={handleColorPickerClick}
+        />
+      )}
     </div>
   );
 };

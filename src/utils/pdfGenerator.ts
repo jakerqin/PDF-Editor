@@ -7,6 +7,7 @@ import {
   TextEditOperation,
   ImageOperation,
   MaskOperation,
+  DrawPathOperation,
 } from '../types/editor.types';
 import { loadFont, getFontConfig, FONTS } from './fontManager';
 
@@ -231,6 +232,15 @@ async function applyOperation(
         pdfPageHeight
       );
       break;
+
+    case EditOperationType.DRAW_PATH:
+      applyDrawPathOperation(
+        operation as DrawPathOperation,
+        page,
+        canvasHeight,
+        pdfPageHeight
+      );
+      break;
   }
 }
 
@@ -383,6 +393,90 @@ function parseColor(colorString: string): any {
 
   // 默认黑色
   return rgb(0, 0, 0);
+}
+
+/**
+ * 应用绘制路径操作（背景笔）
+ */
+function applyDrawPathOperation(
+  operation: DrawPathOperation,
+  page: any,
+  canvasHeight: number,
+  pdfPageHeight: number
+): void {
+  const { path, color, strokeWidth } = operation;
+  
+  // 计算缩放比例
+  const scale = pdfPageHeight / canvasHeight;
+  const pdfStrokeWidth = strokeWidth * scale;
+  
+  // 解析颜色
+  const strokeColor = parseColor(color);
+  
+  // 开始绘制路径
+  if (!path || path.length === 0) return;
+  
+  // Fabric.js path 格式：[['M', x, y], ['L', x, y], ['Q', cx, cy, x, y], ...]
+  for (let i = 0; i < path.length; i++) {
+    const cmd = path[i];
+    if (!cmd || cmd.length === 0) continue;
+    
+    const command = cmd[0];
+    
+    switch (command) {
+      case 'M': // Move to
+        if (cmd.length >= 3) {
+          const x = cmd[1] * scale;
+          const y = pdfPageHeight - cmd[2] * scale;
+          page.moveTo(x, y);
+        }
+        break;
+        
+      case 'L': // Line to
+        if (cmd.length >= 3) {
+          const x = cmd[1] * scale;
+          const y = pdfPageHeight - cmd[2] * scale;
+          page.lineTo(x, y);
+        }
+        break;
+        
+      case 'Q': // Quadratic curve
+        if (cmd.length >= 5) {
+          const cx = cmd[1] * scale;
+          const cy = pdfPageHeight - cmd[2] * scale;
+          const x = cmd[3] * scale;
+          const y = pdfPageHeight - cmd[4] * scale;
+          page.quadraticCurveTo(cx, cy, x, y);
+        }
+        break;
+        
+      case 'C': // Cubic Bezier curve
+        if (cmd.length >= 7) {
+          const cp1x = cmd[1] * scale;
+          const cp1y = pdfPageHeight - cmd[2] * scale;
+          const cp2x = cmd[3] * scale;
+          const cp2y = pdfPageHeight - cmd[4] * scale;
+          const x = cmd[5] * scale;
+          const y = pdfPageHeight - cmd[6] * scale;
+          page.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y);
+        }
+        break;
+        
+      case 'Z': // Close path
+        page.closePath();
+        break;
+        
+      default:
+        console.warn(`未知的路径命令: ${command}`);
+    }
+  }
+  
+  // 设置描边样式并绘制
+  page.setLineWidth(pdfStrokeWidth);
+  page.setStrokingColor(strokeColor);
+  page.stroke();
+  
+  console.log(`已应用绘制路径，颜色: ${color}, 粗细: ${strokeWidth}px`);
 }
 
 /**
