@@ -6,6 +6,7 @@ import {
   TextStyle,
   PDFTextItem,
   EditOperationType,
+  EditOperation,
   MaskOperation,
   TextEditOperation,
   ImageOperation,
@@ -25,6 +26,7 @@ interface EditorCanvasProps {
   textStyle: TextStyle;
   brushSettings: BrushSettings;
   pageNumber: number;
+  operations: EditOperation[];
   onAddOperation: (operation: any) => void;
   onRemoveOperation: (operationId: string) => void;
   onObjectSelected: (objectId: string | null) => void;
@@ -40,6 +42,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   textStyle,
   brushSettings,
   pageNumber,
+  operations,
   onAddOperation,
   onRemoveOperation,
   onObjectSelected,
@@ -319,7 +322,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       left: textItem.x,
       top: textItem.y,
       fontFamily: getFontCSSFamily(textStyle.fontId),
-      fontSize: textItem.fontSize,
+      fontSize: textStyle.fontSize,
       fill: textStyle.color,
       fontWeight: textStyle.fontWeight,
       fontStyle: textStyle.fontStyle,
@@ -578,6 +581,66 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       disableDrawingMode();
     }
   }, [isReady, currentTool, enableDrawingMode, disableDrawingMode]);
+
+  /**
+   * 监听 operations 变化，同步 Fabric.js Canvas
+   */
+  useEffect(() => {
+    if (!isReady) return;
+
+    const fabricCanvas = fabricCanvasRef.current;
+    if (!fabricCanvas) return;
+
+    console.log('🔄 operations 变化，同步 Canvas:', {
+      operationsCount: operations.length,
+    });
+
+    // 获取 Canvas 上所有编辑对象
+    const allObjects = fabricCanvas.getObjects();
+    const editObjects = allObjects.filter(obj => (obj as any).editOperationId);
+
+    // 查找需要删除的对象（在 Canvas 上但不在 operations 中）
+    const objectsToRemove = editObjects.filter(
+      obj => !operations.find(op => op.id === (obj as any).editOperationId)
+    );
+
+    if (objectsToRemove.length > 0) {
+      console.log('🗑️ 删除对象:', objectsToRemove.map(obj => (obj as any).editOperationId));
+      objectsToRemove.forEach(obj => fabricCanvas.remove(obj));
+      fabricCanvas.renderAll();
+    }
+  }, [isReady, operations]);
+
+  /**
+   * 监听 textStyle 变化，实时更新正在编辑的文本对象
+   */
+  useEffect(() => {
+    if (!isReady) return;
+
+    const fabricCanvas = fabricCanvasRef.current;
+    if (!fabricCanvas) return;
+
+    // 获取当前选中的文本对象
+    const activeObject = fabricCanvas.getActiveObject();
+    if (!activeObject) return;
+
+    // 检查是否是文本对象且正在编辑
+    if (activeObject instanceof fabric.IText && activeObject.isEditing) {
+      console.log('📝 更新文本样式:', textStyle);
+
+      // 应用新的样式
+      activeObject.set({
+        fontFamily: getFontCSSFamily(textStyle.fontId),
+        fontSize: textStyle.fontSize,
+        fill: textStyle.color,
+        fontWeight: textStyle.fontWeight,
+        fontStyle: textStyle.fontStyle,
+      });
+
+      activeObject.setCoords();
+      fabricCanvas.renderAll();
+    }
+  }, [isReady, textStyle]);
 
   /**
    * 取色功能

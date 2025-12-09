@@ -1,18 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { PDFViewer } from './components/PDFViewer';
 import { ToastContainer, toast } from './components/Toast';
 import { usePDFDocument } from './hooks/usePDFDocument';
 import { useEditor } from './hooks/useEditor';
+import { registerCSSFonts } from './utils/fontManager';
 
 function App() {
   // 统一在 App 层管理所有状态
   const pdfDocument = usePDFDocument();
   const editor = useEditor();
-  
+
+  // 字体加载状态
+  const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [fontLoading, setFontLoading] = useState(true);
+
   // 取色状态
   const [isPickingColor, setIsPickingColor] = useState(false);
   const [pickedColor, setPickedColor] = useState<string | null>(null);
+
+  // 加载字体
+  useEffect(() => {
+    const loadFonts = async () => {
+      try {
+        console.log('🔄 正在加载字体...');
+        await registerCSSFonts();
+        setFontsLoaded(true);
+        console.log('✅ 字体加载完成');
+        setFontLoading(false);
+      } catch (error) {
+        console.error('❌ 字体加载失败:', error);
+        setFontLoading(false);
+        // 字体加载失败不影响主要功能，继续运行
+      }
+    };
+
+    loadFonts();
+  }, []);
 
   const handleExport = async () => {
     if (!pdfDocument.documentState.file || !pdfDocument.currentPageRenderInfo) {
@@ -55,6 +79,16 @@ function App() {
     <div className="app-container">
       {/* Toast 通知容器 */}
       <ToastContainer />
+
+      {/* 字体加载遮罩 */}
+      {fontLoading && (
+        <div className="font-loading-overlay">
+          <div className="font-loading-content">
+            <div className="loading-spinner"></div>
+            <p>正在加载字体...</p>
+          </div>
+        </div>
+      )}
 
       {/* 顶部工具栏 */}
       <Toolbar

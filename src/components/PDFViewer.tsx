@@ -42,6 +42,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   isPickingColor,
   onColorPicked,
 }) => {
+  // 获取当前页的操作
+  const pageOperations = React.useMemo(() => {
+    return editorState.operations.filter(
+      (op) => op.pageNumber === documentState.currentPage
+    );
+  }, [editorState.operations, documentState.currentPage]);
   return (
     <div className="main-content">
       {/* 空状态：没有加载 PDF */}
@@ -96,6 +102,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             textStyle={editorState.textStyle}
             brushSettings={editorState.brushSettings}
             pageNumber={documentState.currentPage}
+            operations={pageOperations}
             onAddOperation={addOperation}
             onRemoveOperation={removeOperation}
             onObjectSelected={setSelectedObject}
