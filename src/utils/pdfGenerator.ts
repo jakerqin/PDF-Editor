@@ -46,51 +46,69 @@ export async function generateEditedPDF(
   const fontCharsEntries = Array.from(fontCharsMap.entries());
 
   for (const [fontId, chars] of fontCharsEntries) {
-    try {
-      const fontBytes = await loadFont(fontId);
-      const fontConfig = getFontConfig(fontId);
+    const fontConfig = getFontConfig(fontId);
+    if (!fontConfig) continue;
 
-      // 使用 fonteditor-core 进行字体子集化
-      console.log(`正在子集化字体: ${fontConfig?.name}, 字符数: ${chars.length}`);
-      const subsetBuffer = await subsetFontWithFonteditor(fontBytes, chars);
-
-      // 嵌入子集化后的字体
-      const embeddedFont = await pdfDoc.embedFont(subsetBuffer);
+    if (fontConfig.isStandard && fontConfig.standardFont) {
+      // 嵌入标准字体
+      const embeddedFont = await pdfDoc.embedStandardFont(fontConfig.standardFont);
       embeddedFonts.set(fontId, embeddedFont);
-
-      const originalSize = (fontBytes.byteLength / 1024 / 1024).toFixed(2);
-      const subsetSize = (subsetBuffer.byteLength / 1024).toFixed(2);
-      console.log(`字体子集化成功: ${fontConfig?.name} (${originalSize} MB → ${subsetSize} KB)`);
-    } catch (error) {
-      console.error(`字体子集化失败: ${fontId}`, error);
-      // 回退：嵌入完整字体
+      console.log(`嵌入标准字体: ${fontConfig.name}`);
+    } else {
+      // 嵌入自定义字体（需要子集化）
       try {
         const fontBytes = await loadFont(fontId);
-        const embeddedFont = await pdfDoc.embedFont(fontBytes);
+
+        // 使用 fonteditor-core 进行字体子集化
+        console.log(`正在子集化字体: ${fontConfig.name}, 字符数: ${chars.length}`);
+        const subsetBuffer = await subsetFontWithFonteditor(fontBytes, chars);
+
+        // 嵌入子集化后的字体
+        const embeddedFont = await pdfDoc.embedFont(subsetBuffer);
         embeddedFonts.set(fontId, embeddedFont);
-        console.log(`回退到完整字体: ${getFontConfig(fontId)?.name}`);
-      } catch (fallbackError) {
-        console.error(`完整字体嵌入也失败: ${fontId}`, fallbackError);
+
+        const originalSize = (fontBytes.byteLength / 1024 / 1024).toFixed(2);
+        const subsetSize = (subsetBuffer.byteLength / 1024).toFixed(2);
+        console.log(`字体子集化成功: ${fontConfig.name} (${originalSize} MB → ${subsetSize} KB)`);
+      } catch (error) {
+        console.error(`字体子集化失败: ${fontId}`, error);
+        // 回退：嵌入完整字体
+        try {
+          const fontBytes = await loadFont(fontId);
+          const embeddedFont = await pdfDoc.embedFont(fontBytes);
+          embeddedFonts.set(fontId, embeddedFont);
+          console.log(`回退到完整字体: ${fontConfig.name}`);
+        } catch (fallbackError) {
+          console.error(`完整字体嵌入也失败: ${fontId}`, fallbackError);
+        }
       }
     }
   }
 
-  // 如果没有嵌入任何字体但有文本操作，加载默认字体
+  // 如果没有嵌入任何字体 but 有文本操作，加载默认字体
   if (embeddedFonts.size === 0 && operations.length > 0) {
     const textOps = operations.filter(
       op => op.type === EditOperationType.ADD_TEXT || op.type === EditOperationType.OVERLAY_TEXT
     );
     if (textOps.length > 0) {
       const defaultFontId = FONTS[0].id;
-      const allText = textOps.map(op => (op as TextEditOperation).text).join('');
-      const fontBytes = await loadFont(defaultFontId);
-      try {
-        const subsetBuffer = await subsetFontWithFonteditor(fontBytes, allText);
-        const embeddedFont = await pdfDoc.embedFont(subsetBuffer);
+      const defaultFontConfig = FONTS[0];
+
+      if (defaultFontConfig.isStandard && defaultFontConfig.standardFont) {
+        const embeddedFont = await pdfDoc.embedStandardFont(defaultFontConfig.standardFont);
         embeddedFonts.set(defaultFontId, embeddedFont);
-      } catch {
-        const embeddedFont = await pdfDoc.embedFont(fontBytes);
-        embeddedFonts.set(defaultFontId, embeddedFont);
+      } else {
+        // Fallback for custom default font (unlikely with current config but good for safety)
+        const allText = textOps.map(op => (op as TextEditOperation).text).join('');
+        const fontBytes = await loadFont(defaultFontId);
+        try {
+          const subsetBuffer = await subsetFontWithFonteditor(fontBytes, allText);
+          const embeddedFont = await pdfDoc.embedFont(subsetBuffer);
+          embeddedFonts.set(defaultFontId, embeddedFont);
+        } catch {
+          const embeddedFont = await pdfDoc.embedFont(fontBytes);
+          embeddedFonts.set(defaultFontId, embeddedFont);
+        }
       }
     }
   }
@@ -148,7 +166,7 @@ async function subsetFontWithFonteditor(
     type: 'ttf',
     hinting: true,
     toBuffer: true,  // 确保返回 ArrayBuffer
-  }) as ArrayBuffer;
+  }) as any as ArrayBuffer;
 
   return buffer;
 }

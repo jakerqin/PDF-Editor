@@ -572,3 +572,49 @@ body {
   color: var(--gray-700);
   margin-top: 16px;
 }
+
+/* ===== 字体标签徽章 ===== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.badge-standard {
+  background: var(--primary-100);
+  color: var(--primary-700);
+  border: 1px solid var(--primary-200);
+}
+
+.badge-local {
+  background: #d1fae5;
+  color: #047857;
+  border: 1px solid #6ee7b7;
+}
+
+/* 悬停时徽章高亮 */
+.group:hover .badge-standard {
+  background: var(--primary-200);
+}
+
+.group:hover .badge-local {
+  background: #a7f3d0;
+}
+
+/* ===== 字体选择下拉框 ===== */
+.font-select-container {
+  position: relative;
+}
+
+/* 确保下拉框不影响 Toolbar 布局 */
+.font-select-container > div:last-of-type {
+  position: absolute !important;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+}

@@ -10,9 +10,11 @@ import {
   Minus,
   Plus,
   Paintbrush,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { EditorTool, TextStyle, BrushSettings } from '../types/editor.types';
-import { FONTS } from '../utils/fontManager';
+import { getAllFonts, registerLocalFonts } from '../utils/fontManager';
 import { ColorPickerModal } from './ColorPickerModal';
 
 interface ToolbarProps {
@@ -56,7 +58,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const fontInputRef = useRef<HTMLInputElement>(null);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [fonts, setFonts] = useState(getAllFonts());
+  const [isLoadingFonts, setIsLoadingFonts] = useState(false);
+  const [isFontDropdownOpen, setIsFontDropdownOpen] = useState(false);
+  const [fontSearchTerm, setFontSearchTerm] = useState('');
 
   // 当收到取色结果时打开 modal
   React.useEffect(() => {
@@ -64,6 +71,66 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       setIsColorPickerOpen(true);
     }
   }, [pickedColor]);
+
+  // 自动加载系统字体（如果支持）
+  React.useEffect(() => {
+    const loadSystemFonts = async () => {
+      if (window.queryLocalFonts) {
+        try {
+          setIsLoadingFonts(true);
+          await registerLocalFonts();
+          setFonts(getAllFonts());
+          console.log('系统字体已自动加载');
+        } catch (err) {
+          console.error('自动加载系统字体失败:', err);
+        } finally {
+          setIsLoadingFonts(false);
+        }
+      }
+    };
+
+    loadSystemFonts();
+  }, []);
+
+  // 切换下拉框
+  const handleToggleDropdown = () => {
+    if (!isFontDropdownOpen) {
+      // 打开：清空搜索内容
+      setFontSearchTerm('');
+    }
+    setIsFontDropdownOpen(!isFontDropdownOpen);
+
+    // 打开时聚焦输入框
+    if (!isFontDropdownOpen) {
+      setTimeout(() => {
+        fontInputRef.current?.focus();
+        fontInputRef.current?.select();
+      }, 0);
+    }
+  };
+
+  // 输入框聚焦时打开下拉框（但不清空内容）
+  const handleInputFocus = () => {
+    if (!isFontDropdownOpen) {
+      setIsFontDropdownOpen(true);
+    }
+  };
+
+  // 输入框内容变化时实时搜索
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFontSearchTerm(e.target.value);
+    // 如果下拉框未打开，则打开它
+    if (!isFontDropdownOpen) {
+      setIsFontDropdownOpen(true);
+    }
+  };
+
+  // 选择字体
+  const handleFontSelect = (fontId: string) => {
+    onTextStyleChange({ fontId });
+    setIsFontDropdownOpen(false);
+    setFontSearchTerm(''); // 清空搜索词，让输入框显示字体名称
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -195,19 +262,114 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </>
         )}
 
-        {/* 字体选择 */}
-        <select
-          value={textStyle.fontId}
-          onChange={(e) => onTextStyleChange({ fontId: e.target.value })}
-          className="select-input font-select"
-          title="选择字体"
-        >
-          {FONTS.map((font) => (
-            <option key={font.id} value={font.id} style={{ fontFamily: font.cssFamily }}>
-              {font.name}
-            </option>
-          ))}
-        </select>
+        {/* 字体选择 (输入框 + 下拉框) */}
+        <div className="font-select-container" style={{ width: '160px', flexShrink: 0 }}>
+          {/* 输入框容器 */}
+          <div className="flex items-center border border-gray-300 rounded overflow-hidden">
+            {/* 输入框 */}
+            <input
+              ref={fontInputRef}
+              type="text"
+              className="flex-1 px-2 py-1.5 text-sm outline-none"
+              style={{
+                width: '140px',
+                fontFamily: !isFontDropdownOpen && textStyle.fontId
+                  ? fonts.find(f => f.id === textStyle.fontId)?.cssFamily
+                  : 'inherit'
+              }}
+              value={
+                isFontDropdownOpen
+                  ? fontSearchTerm
+                  : fonts.find(f => f.id === textStyle.fontId)?.name || '选择字体'
+              }
+              onChange={handleInputChange}
+              onFocus={handleInputFocus}
+              placeholder="搜索字体..."
+              disabled={isLoadingFonts}
+            />
+
+            {/* 箭头按钮 */}
+            <button
+              className="px-2 py-1.5 bg-gray-50 hover:bg-gray-100 transition-colors border-l border-gray-300"
+              onClick={handleToggleDropdown}
+              disabled={isLoadingFonts}
+              title={isFontDropdownOpen ? '收起' : '展开'}
+            >
+              {isFontDropdownOpen ? (
+                <ChevronUp size={16} className="text-gray-600" />
+              ) : (
+                <ChevronDown size={16} className="text-gray-600" />
+              )}
+            </button>
+          </div>
+
+          {/* 下拉框 */}
+          {isFontDropdownOpen && (
+            <div
+              className="bg-white border border-gray-300 rounded-lg shadow-xl overflow-y-auto"
+              style={{
+                width: '256px',
+                maxHeight: '300px',
+                zIndex: 9999
+              }}
+            >
+              {/* 字体列表 (平铺，无分组) */}
+              <div>
+                {(() => {
+                  // 过滤字体
+                  const filteredFonts = fonts.filter(font =>
+                    font.name.toLowerCase().includes(fontSearchTerm.toLowerCase())
+                  );
+
+                  if (filteredFonts.length === 0) {
+                    return (
+                      <div className="px-3 py-8 text-gray-400 text-xs text-center">
+                        未找到匹配的字体
+                      </div>
+                    );
+                  }
+
+                  return filteredFonts.map((font) => (
+                    <button
+                      key={font.id}
+                      className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 transition-colors flex items-center justify-between group ${textStyle.fontId === font.id
+                          ? 'bg-blue-50 border-l-2 border-blue-500'
+                          : ''
+                        }`}
+                      onClick={() => handleFontSelect(font.id)}
+                    >
+                      {/* 字体名称 */}
+                      <span
+                        className="text-sm flex-1"
+                        style={{ fontFamily: font.cssFamily }}
+                      >
+                        {font.name}
+                      </span>
+
+                      {/* 标签 */}
+                      {font.isStandard ? (
+                        <span className="badge badge-standard">标准</span>
+                      ) : (
+                        <span className="badge badge-local">本地</span>
+                      )}
+                    </button>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 遮罩层 (点击外部关闭) */}
+        {isFontDropdownOpen && (
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => {
+              setIsFontDropdownOpen(false);
+              setFontSearchTerm('');
+            }}
+          />
+        )}
 
         {/* 字体大小 */}
         <select
