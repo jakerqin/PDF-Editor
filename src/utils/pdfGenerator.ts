@@ -1,4 +1,4 @@
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument, rgb, LineCapStyle, LineJoinStyle } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { Font } from 'fonteditor-core';
 import {
@@ -40,24 +40,24 @@ export async function generateEditedPDF(
 
   // 收集每个字体使用的字符
   const fontCharsMap = collectFontChars(operations);
-  
+
   // 加载、子集化并嵌入字体
   const embeddedFonts: EmbeddedFontMap = new Map();
   const fontCharsEntries = Array.from(fontCharsMap.entries());
-  
+
   for (const [fontId, chars] of fontCharsEntries) {
     try {
       const fontBytes = await loadFont(fontId);
       const fontConfig = getFontConfig(fontId);
-      
+
       // 使用 fonteditor-core 进行字体子集化
       console.log(`正在子集化字体: ${fontConfig?.name}, 字符数: ${chars.length}`);
       const subsetBuffer = await subsetFontWithFonteditor(fontBytes, chars);
-      
+
       // 嵌入子集化后的字体
       const embeddedFont = await pdfDoc.embedFont(subsetBuffer);
       embeddedFonts.set(fontId, embeddedFont);
-      
+
       const originalSize = (fontBytes.byteLength / 1024 / 1024).toFixed(2);
       const subsetSize = (subsetBuffer.byteLength / 1024).toFixed(2);
       console.log(`字体子集化成功: ${fontConfig?.name} (${originalSize} MB → ${subsetSize} KB)`);
@@ -133,7 +133,7 @@ async function subsetFontWithFonteditor(
   // 添加一些基本字符确保字体可用
   glyphSet.add(32); // 空格
   glyphSet.add(46); // 句号
-  
+
   const subset = Array.from(glyphSet);
 
   // 读取字体
@@ -159,13 +159,13 @@ async function subsetFontWithFonteditor(
  */
 function collectFontChars(operations: EditOperation[]): Map<string, string> {
   const fontCharsMap = new Map<string, string>();
-  
+
   operations.forEach((op) => {
     if (op.type === EditOperationType.ADD_TEXT || op.type === EditOperationType.OVERLAY_TEXT) {
       const textOp = op as TextEditOperation;
       const fontId = textOp.style.fontId;
       const text = textOp.text;
-      
+
       if (fontId && text) {
         const existingChars = fontCharsMap.get(fontId) || '';
         // 合并字符，去重
@@ -176,7 +176,7 @@ function collectFontChars(operations: EditOperation[]): Map<string, string> {
       }
     }
   });
-  
+
   return fontCharsMap;
 }
 
@@ -254,10 +254,10 @@ function applyMaskOperation(
   pdfPageHeight: number
 ): void {
   const { x, y, width, height } = operation;
-  
+
   // 计算缩放比例
   const scale = pdfPageHeight / canvasHeight;
-  
+
   // 转换坐标和尺寸
   const pdfX = x * scale;
   const pdfY = pdfPageHeight - y * scale;
@@ -285,13 +285,13 @@ async function applyTextOperation(
   pdfPageHeight: number
 ): Promise<void> {
   const { text, x, y, style } = operation;
-  
+
   // 计算缩放比例（Canvas 到 PDF 的转换）
   const scale = pdfPageHeight / canvasHeight;
-  
+
   // 字体大小也需要按比例缩放
   const pdfFontSize = style.fontSize * scale;
-  
+
   // 转换坐标：
   // - X 需要缩放
   // - Y 需要缩放、翻转，并考虑基线偏移
@@ -335,10 +335,10 @@ async function applyImageOperation(
   pdfPageHeight: number
 ): Promise<void> {
   const { imageData, x, y, width, height, rotation } = operation;
-  
+
   // 计算缩放比例
   const scale = pdfPageHeight / canvasHeight;
-  
+
   // 转换坐标和尺寸
   const pdfX = x * scale;
   const pdfY = pdfPageHeight - y * scale;
@@ -405,78 +405,56 @@ function applyDrawPathOperation(
   pdfPageHeight: number
 ): void {
   const { path, color, strokeWidth } = operation;
-  
+
   // 计算缩放比例
   const scale = pdfPageHeight / canvasHeight;
   const pdfStrokeWidth = strokeWidth * scale;
-  
+
   // 解析颜色
   const strokeColor = parseColor(color);
-  
+
   // 开始绘制路径
   if (!path || path.length === 0) return;
-  
+
+  // 将 Fabric.js path 转换为 SVG path 字符串
   // Fabric.js path 格式：[['M', x, y], ['L', x, y], ['Q', cx, cy, x, y], ...]
-  for (let i = 0; i < path.length; i++) {
-    const cmd = path[i];
-    if (!cmd || cmd.length === 0) continue;
-    
-    const command = cmd[0];
-    
-    switch (command) {
-      case 'M': // Move to
-        if (cmd.length >= 3) {
-          const x = cmd[1] * scale;
-          const y = pdfPageHeight - cmd[2] * scale;
-          page.moveTo(x, y);
-        }
-        break;
-        
-      case 'L': // Line to
-        if (cmd.length >= 3) {
-          const x = cmd[1] * scale;
-          const y = pdfPageHeight - cmd[2] * scale;
-          page.lineTo(x, y);
-        }
-        break;
-        
-      case 'Q': // Quadratic curve
-        if (cmd.length >= 5) {
-          const cx = cmd[1] * scale;
-          const cy = pdfPageHeight - cmd[2] * scale;
-          const x = cmd[3] * scale;
-          const y = pdfPageHeight - cmd[4] * scale;
-          page.quadraticCurveTo(cx, cy, x, y);
-        }
-        break;
-        
-      case 'C': // Cubic Bezier curve
-        if (cmd.length >= 7) {
-          const cp1x = cmd[1] * scale;
-          const cp1y = pdfPageHeight - cmd[2] * scale;
-          const cp2x = cmd[3] * scale;
-          const cp2y = pdfPageHeight - cmd[4] * scale;
-          const x = cmd[5] * scale;
-          const y = pdfPageHeight - cmd[6] * scale;
-          page.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y);
-        }
-        break;
-        
-      case 'Z': // Close path
-        page.closePath();
-        break;
-        
-      default:
-        console.warn(`未知的路径命令: ${command}`);
-    }
-  }
-  
-  // 设置描边样式并绘制
-  page.setLineWidth(pdfStrokeWidth);
-  page.setStrokingColor(strokeColor);
-  page.stroke();
-  
-  console.log(`已应用绘制路径，颜色: ${color}, 粗细: ${strokeWidth}px`);
+  // SVG path 格式："M x y L x y Q cx cy x y C cp1x cp1y cp2x cp2y x y Z"
+  const svgPath = path.map(cmd => {
+    if (!cmd || cmd.length === 0) return '';
+
+    const scaledCmd = cmd.map((value: any, index: number) => {
+      if (index === 0) return value; // 保持命令字符不变
+
+      // 坐标转换：
+      // - 索引 1, 3, 5, 7... 是 x 坐标（奇数索引）
+      // - 索引 2, 4, 6, 8... 是 y 坐标（偶数索引）
+      // y 坐标：直接缩放（drawSvgPath 会自动处理坐标系转换，只需将原点设为左上角）
+      return (value * scale);
+    });
+
+    return scaledCmd.join(' ');
+  }).join(' ');
+
+  // 使用 drawSvgPath 绘制路径（支持 M, L, Q, C, Z 等命令）
+  console.log('🎨 准备绘制 SVG Path:', {
+    originalPath: path,
+    svgPath: svgPath,
+    strokeWidth: pdfStrokeWidth,
+    strokeColor: color,
+    scale: scale,
+    pdfPageHeight: pdfPageHeight
+  });
+
+  page.drawSvgPath(svgPath, {
+    x: 0,
+    y: pdfPageHeight, // 将原点设为页面左上角
+    borderWidth: pdfStrokeWidth,
+    borderColor: strokeColor,
+    borderLineCap: LineCapStyle.Round,
+    borderLineJoin: LineJoinStyle.Round,
+  });
+
+  console.log(`✅ 已应用绘制路径，颜色: ${color}, 粗细: ${strokeWidth}px`);
 }
 
 /**
@@ -486,11 +464,11 @@ function base64ToBytes(base64String: string): Uint8Array {
   const base64Data = base64String.split(',')[1] || base64String;
   const binaryString = atob(base64Data);
   const bytes = new Uint8Array(binaryString.length);
-  
+
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
-  
+
   return bytes;
 }
 
@@ -502,13 +480,13 @@ export function downloadPDF(pdfBytes: Uint8Array, fileName: string): void {
   const bytes = new Uint8Array(pdfBytes);
   const blob = new Blob([bytes], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
-  
+
   const link = document.createElement('a');
   link.href = url;
   link.download = fileName;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  
+
   URL.revokeObjectURL(url);
 }
