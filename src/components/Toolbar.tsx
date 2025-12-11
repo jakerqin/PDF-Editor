@@ -10,8 +10,7 @@ import {
   Minus,
   Plus,
   Paintbrush,
-  ChevronDown,
-  ChevronUp,
+  Search,
 } from 'lucide-react';
 import { EditorTool, TextStyle, BrushSettings } from '../types/editor.types';
 import { getAllFonts, registerLocalFonts } from '../utils/fontManager';
@@ -64,6 +63,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const [isLoadingFonts, setIsLoadingFonts] = useState(false);
   const [isFontDropdownOpen, setIsFontDropdownOpen] = useState(false);
   const [fontSearchTerm, setFontSearchTerm] = useState('');
+  const [filteredFonts, setFilteredFonts] = useState(getAllFonts());
 
   // 当收到取色结果时打开 modal
   React.useEffect(() => {
@@ -79,7 +79,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         try {
           setIsLoadingFonts(true);
           await registerLocalFonts();
-          setFonts(getAllFonts());
+          const loadedFonts = getAllFonts();
+          setFonts(loadedFonts);
+          setFilteredFonts(loadedFonts);
           console.log('系统字体已自动加载');
         } catch (err) {
           console.error('自动加载系统字体失败:', err);
@@ -92,36 +94,45 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     loadSystemFonts();
   }, []);
 
-  // 切换下拉框
-  const handleToggleDropdown = () => {
-    if (!isFontDropdownOpen) {
-      // 打开：清空搜索内容
-      setFontSearchTerm('');
-    }
-    setIsFontDropdownOpen(!isFontDropdownOpen);
-
-    // 打开时聚焦输入框
-    if (!isFontDropdownOpen) {
-      setTimeout(() => {
-        fontInputRef.current?.focus();
-        fontInputRef.current?.select();
-      }, 0);
-    }
-  };
-
-  // 输入框聚焦时打开下拉框（但不清空内容）
+  // 输入框聚焦时打开下拉框
   const handleInputFocus = () => {
-    if (!isFontDropdownOpen) {
-      setIsFontDropdownOpen(true);
+    setIsFontDropdownOpen(true);
+  };
+
+  // 输入框内容变化
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFontSearchTerm(value);
+
+    // 如果输入框被清空，立即显示所有字体
+    if (value.trim() === '') {
+      setFilteredFonts(fonts);
     }
   };
 
-  // 输入框内容变化时实时搜索
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFontSearchTerm(e.target.value);
+  // 执行搜索（点击搜索按钮或按下回车键时触发）
+  const handleSearch = () => {
+    const searchValue = fontSearchTerm.trim().toLowerCase();
+    if (searchValue === '') {
+      setFilteredFonts(fonts);
+    } else {
+      const filtered = fonts.filter(font =>
+        font.name.toLowerCase().includes(searchValue)
+      );
+      setFilteredFonts(filtered);
+    }
+
     // 如果下拉框未打开，则打开它
     if (!isFontDropdownOpen) {
       setIsFontDropdownOpen(true);
+    }
+  };
+
+  // 处理回车键
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearch();
     }
   };
 
@@ -129,7 +140,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const handleFontSelect = (fontId: string) => {
     onTextStyleChange({ fontId });
     setIsFontDropdownOpen(false);
-    setFontSearchTerm(''); // 清空搜索词，让输入框显示字体名称
+    setFontSearchTerm('');
+    setFilteredFonts(fonts);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -262,65 +274,53 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </>
         )}
 
-        {/* 字体选择 (输入框 + 下拉框) */}
-        <div className="font-select-container" style={{ width: '160px', flexShrink: 0 }}>
-          {/* 输入框容器 */}
-          <div className="flex items-center border border-gray-300 rounded overflow-hidden">
-            {/* 输入框 */}
+        {/* 字体选择 (搜索框 + 下拉框) */}
+        <div className="font-select-container group" style={{ width: '200px', flexShrink: 0 }}>
+          {/* 搜索输入框 */}
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
             <input
               ref={fontInputRef}
               type="text"
-              className="flex-1 px-2 py-1.5 text-sm outline-none"
+              className="w-full pl-10 pr-16 py-2 text-sm border border-gray-300 rounded-lg outline-none transition-all duration-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              placeholder={
+                !fontSearchTerm && textStyle.fontId
+                  ? fonts.find(f => f.id === textStyle.fontId)?.name || fonts[0]?.name || '选择字体'
+                  : '搜索字体...'
+              }
+              value={fontSearchTerm}
+              onChange={handleInputChange}
+              onFocus={handleInputFocus}
+              onKeyDown={handleKeyPress}
+              disabled={isLoadingFonts}
               style={{
-                width: '140px',
-                fontFamily: !isFontDropdownOpen && textStyle.fontId
+                fontFamily: !fontSearchTerm && textStyle.fontId
                   ? fonts.find(f => f.id === textStyle.fontId)?.cssFamily
                   : 'inherit'
               }}
-              value={
-                isFontDropdownOpen
-                  ? fontSearchTerm
-                  : fonts.find(f => f.id === textStyle.fontId)?.name || '选择字体'
-              }
-              onChange={handleInputChange}
-              onFocus={handleInputFocus}
-              placeholder="搜索字体..."
-              disabled={isLoadingFonts}
             />
-
-            {/* 箭头按钮 */}
             <button
-              className="px-2 py-1.5 bg-gray-50 hover:bg-gray-100 transition-colors border-l border-gray-300"
-              onClick={handleToggleDropdown}
+              onClick={handleSearch}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-600 px-3 py-1 rounded text-xs font-medium opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 hover:bg-blue-50"
               disabled={isLoadingFonts}
-              title={isFontDropdownOpen ? '收起' : '展开'}
             >
-              {isFontDropdownOpen ? (
-                <ChevronUp size={16} className="text-gray-600" />
-              ) : (
-                <ChevronDown size={16} className="text-gray-600" />
-              )}
+              搜索
             </button>
           </div>
 
           {/* 下拉框 */}
           {isFontDropdownOpen && (
             <div
-              className="bg-white border border-gray-300 rounded-lg shadow-xl overflow-y-auto"
+              className="bg-white border border-gray-300 rounded-lg shadow-xl overflow-hidden"
               style={{
                 width: '256px',
                 maxHeight: '300px',
                 zIndex: 9999
               }}
             >
-              {/* 字体列表 (平铺，无分组) */}
-              <div>
+              {/* 字体列表 */}
+              <div className="overflow-y-auto" style={{ maxHeight: '300px' }}>
                 {(() => {
-                  // 过滤字体
-                  const filteredFonts = fonts.filter(font =>
-                    font.name.toLowerCase().includes(fontSearchTerm.toLowerCase())
-                  );
-
                   if (filteredFonts.length === 0) {
                     return (
                       <div className="px-3 py-8 text-gray-400 text-xs text-center">
@@ -332,10 +332,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   return filteredFonts.map((font) => (
                     <button
                       key={font.id}
-                      className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 transition-colors flex items-center justify-between group ${textStyle.fontId === font.id
+                      className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 transition-colors flex items-center justify-between group ${
+                        textStyle.fontId === font.id
                           ? 'bg-blue-50 border-l-2 border-blue-500'
                           : ''
-                        }`}
+                      }`}
                       onClick={() => handleFontSelect(font.id)}
                     >
                       {/* 字体名称 */}

@@ -1,3 +1,8 @@
+/* ===== Tailwind CSS v4 导入 ===== */
+@import "tailwindcss/theme.css";
+@import "tailwindcss/preflight.css";
+@import "tailwindcss/utilities.css";
+
 /* ===== CSS 变量 - 现代简约设计系统 ===== */
 :root {
   /* 主色调 - 深邃蓝 */
