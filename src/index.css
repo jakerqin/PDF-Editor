@@ -610,16 +610,3 @@ body {
 .group:hover .badge-local {
   background: #a7f3d0;
 }
-
-/* ===== 字体选择下拉框 ===== */
-.font-select-container {
-  position: relative;
-}
-
-/* 确保下拉框不影响 Toolbar 布局 */
-.font-select-container > div:last-of-type {
-  position: absolute !important;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
-}

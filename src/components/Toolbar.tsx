@@ -275,7 +275,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         )}
 
         {/* 字体选择 (搜索框 + 下拉框) */}
-        <div className="font-select-container group" style={{ width: '200px', flexShrink: 0 }}>
+        <div className="group" style={{ width: '200px', flexShrink: 0 }}>
           {/* 搜索输入框 */}
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
@@ -311,7 +311,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           {/* 下拉框 */}
           {isFontDropdownOpen && (
             <div
-              className="bg-white border border-gray-300 rounded-lg shadow-xl overflow-hidden"
+              className="absolute bg-white border border-gray-300 rounded-lg shadow-xl overflow-hidden"
               style={{
                 width: '256px',
                 maxHeight: '300px',
