@@ -4,7 +4,6 @@ import {
   Download,
   MousePointer2,
   Type,
-  Pencil,
   Image,
   Undo2,
   Minus,
@@ -206,14 +205,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           title="添加文本"
         >
           <Type size={18} />
-        </button>
-
-        <button
-          onClick={() => onToolChange(EditorTool.EDIT_TEXT)}
-          className={`btn btn-ghost btn-icon ${currentTool === EditorTool.EDIT_TEXT ? 'active' : ''}`}
-          title="编辑文本"
-        >
-          <Pencil size={18} />
         </button>
 
         <button

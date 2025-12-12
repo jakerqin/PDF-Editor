@@ -262,107 +262,6 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     onRemoveOperation
   ]);
 
-  /**
-   * 编辑现有文本（覆盖式）
-   */
-  const editExistingText = useCallback((x: number, y: number) => {
-    const fabricCanvas = fabricCanvasRef.current;
-    if (!fabricCanvas) return;
-
-    // 调试：打印点击位置和可用文本
-    console.log('=== 编辑文本调试 ===');
-    console.log('点击位置:', { x, y });
-    console.log('可用文本数量:', textItems.length);
-    if (textItems.length > 0) {
-      console.log('前5个文本项:', textItems.slice(0, 5).map(t => ({
-        str: t.str,
-        x: t.x,
-        y: t.y,
-        width: t.width,
-        height: t.height
-      })));
-    }
-
-    // 查找点击位置的文本
-    const textItem = findTextAtPosition(textItems, x, y);
-    console.log('找到的文本:', textItem);
-    console.log('========================');
-    
-    if (!textItem) return;
-
-    const operationId = `overlay-${Date.now()}`;
-
-    // 1. 创建白色遮罩矩形
-    const maskRect = new fabric.Rect({
-      left: textItem.x,
-      top: textItem.y,
-      width: textItem.width,
-      height: textItem.height,
-      fill: 'white',
-      selectable: false,
-      evented: false,
-    });
-
-    fabricCanvas.add(maskRect);
-
-    // 保存遮罩操作
-    const maskOperation: MaskOperation = {
-      id: `mask-${operationId}`,
-      type: EditOperationType.ADD_MASK,
-      pageNumber,
-      x: textItem.x,
-      y: textItem.y,
-      width: textItem.width,
-      height: textItem.height,
-    };
-    onAddOperation(maskOperation);
-
-    // 2. 在遮罩上方创建可编辑文本
-    const textObject = new fabric.IText(textItem.str, {
-      left: textItem.x,
-      top: textItem.y,
-      fontFamily: getFontCSSFamily(textStyle.fontId),
-      fontSize: textStyle.fontSize,
-      fill: textStyle.color,
-      fontWeight: textStyle.fontWeight,
-      fontStyle: textStyle.fontStyle,
-      editable: true,
-    });
-
-    (textObject as any).editOperationId = operationId;
-    (textObject as any).isEditOperation = true;
-    (textObject as any).originalText = textItem.str;
-    (textObject as any).maskRect = maskRect; // 关联遮罩，便于删除时一起删除
-
-    fabricCanvas.add(textObject);
-    fabricCanvas.setActiveObject(textObject);
-    textObject.enterEditing();
-
-    // 监听文本修改
-    textObject.on('modified', () => {
-      saveTextOperation(textObject, operationId, true, textItem.str);
-    });
-
-    // 监听编辑退出
-    textObject.on('editing:exited', () => {
-      saveTextOperation(textObject, operationId, true, textItem.str);
-    });
-
-    // 初始保存
-    saveTextOperation(textObject, operationId, true, textItem.str);
-  }, [
-    textItems,
-    textStyle.fontId,
-    textStyle.fontSize,
-    textStyle.fontWeight,
-    textStyle.fontStyle,
-    textStyle.color,
-    pageNumber,
-    onAddOperation,
-    saveTextOperation
-  ]);
-
-  // 处理点击事件
   useEffect(() => {
     const fabricCanvas = fabricCanvasRef.current;
     if (!fabricCanvas || !isReady) return;
@@ -370,15 +269,12 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     const handleCanvasClick = (e: any) => {
       // 如果点击的是已有对象，不处理
       if (e.target) return;
-      
+
       const pointer = fabricCanvas.getPointer(e.e);
 
       if (currentTool === EditorTool.TEXT) {
         // 添加新文本
         addNewText(pointer.x, pointer.y);
-      } else if (currentTool === EditorTool.EDIT_TEXT) {
-        // 编辑现有文本
-        editExistingText(pointer.x, pointer.y);
       }
     };
 
@@ -387,7 +283,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     return () => {
       fabricCanvas.off('mouse:down', handleCanvasClick);
     };
-  }, [isReady, currentTool, addNewText, editExistingText]);
+  }, [isReady, currentTool, addNewText]);
 
   /**
    * 保存图片操作

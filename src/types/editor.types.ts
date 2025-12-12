@@ -111,7 +111,6 @@ export enum EditorTool {
   SELECT = 'SELECT', // 选择工具
   TEXT = 'TEXT', // 文本工具
   IMAGE = 'IMAGE', // 图片工具
-  EDIT_TEXT = 'EDIT_TEXT', // 编辑文本工具
   BRUSH = 'BRUSH', // 背景笔工具
 }
 
