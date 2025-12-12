@@ -275,7 +275,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         )}
 
         {/* 字体选择 (搜索框 + 下拉框) */}
-        <div className="group" style={{ width: '200px', flexShrink: 0 }}>
+        <div className="w-[256px]" style={{flexShrink: 0 }}>
           {/* 搜索输入框 */}
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
@@ -301,7 +301,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             />
             <button
               onClick={handleSearch}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-600 px-3 py-1 rounded text-xs font-medium opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 hover:bg-blue-50"
+              className={`absolute right-2 top-1/2 -translate-y-1/2 text-blue-600 px-3 py-1 rounded text-xs font-medium transition-all duration-200 hover:bg-blue-50 ${
+                fontSearchTerm ? 'opacity-100 visible' : 'opacity-0 invisible'
+              }`}
               disabled={isLoadingFonts}
             >
               搜索
@@ -311,15 +313,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           {/* 下拉框 */}
           {isFontDropdownOpen && (
             <div
-              className="absolute bg-white border border-gray-300 rounded-lg shadow-xl overflow-hidden"
-              style={{
-                width: '256px',
-                maxHeight: '300px',
-                zIndex: 9999
-              }}
-            >
+              className="absolute bg-white border border-gray-300 rounded-lg shadow-xl overflow-hidden w-[256px] max-h-[300px] z-[9999]">
               {/* 字体列表 */}
-              <div className="overflow-y-auto" style={{ maxHeight: '300px' }}>
+              <div className="overflow-y-auto max-h-[300px]">
                 {(() => {
                   if (filteredFonts.length === 0) {
                     return (

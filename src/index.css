@@ -602,11 +602,4 @@ body {
   border: 1px solid #6ee7b7;
 }
 
-/* 悬停时徽章高亮 */
-.group:hover .badge-standard {
-  background: var(--primary-200);
-}
 
-.group:hover .badge-local {
-  background: #a7f3d0;
-}
